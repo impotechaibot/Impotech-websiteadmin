@@ -136,7 +136,7 @@ function seed() {
       facebook: '', instagram: '', youtube: '', tiktok: '',
     },
     checkout: {
-      deliveryCharge: 80, freeDeliveryAbove: 2000, codEnabled: true,
+      deliveryCharge: 80, outsideDeliveryCharge: 130, freeDeliveryAbove: 2000, codEnabled: true,
       bkashEnabled: true, bkashNumber: '01884332067',
       nagadEnabled: true, nagadNumber: '01884332067',
       rocketEnabled: false, rocketNumber: '',
