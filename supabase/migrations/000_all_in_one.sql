@@ -132,9 +132,9 @@ alter table site_settings enable row level security;
 alter table admin_users   enable row level security;
 
 -- helper: is the caller an admin?
-create or replace function is_admin()
-returns boolean language sql stable as $$
-  select exists (select 1 from admin_users where id = auth.uid());
+create or replace function public.is_admin()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.admin_users where id = auth.uid() and coalesce(role, 'admin') in ('admin', 'owner'));
 $$;
 
 -- ---- public read (storefront) ----
@@ -203,7 +203,7 @@ insert into site_settings (key, value) values
   ('identity', '{"siteName":"ইম্পোটেক","siteNameEn":"IMPOTECH","tagline":"চায়না থেকে সরাসরি আমদানি — প্রিমিয়াম বাইক অ্যাক্সেসরিজ","logo":"","favicon":"","copyright":"© {year} ইম্পোটেক — সর্বস্বত্ব সংরক্ষিত।"}'),
   ('theme', '{"accent":"#f0b429","accentDark":"#c9920f","fontScale":100,"radius":18,"mode":"dark"}'),
   ('contact', '{"phone":"01884332067","email":"support@impotech.com.bd","address":"ঢাকা, বাংলাদেশ","hours":"সকাল ১০টা — রাত ১০টা","whatsapp":"01884332067","facebook":"","instagram":"","youtube":"","tiktok":""}'),
-  ('checkout', '{"deliveryCharge":80,"freeDeliveryAbove":2000,"codEnabled":true,"bkashEnabled":true,"bkashNumber":"01884332067","nagadEnabled":true,"nagadNumber":"01884332067","rocketEnabled":false,"rocketNumber":"","paymentNote":"বিকাশ/নগদে টাকা পাঠিয়ে ট্রানজেকশন আইডি অর্ডার নোটে লিখুন।","confirmMessage":"ধন্যবাদ! আপনার অর্ডারটি আমরা পেয়েছি।"}'),
+  ('checkout', '{"deliveryCharge":80,"outsideDeliveryCharge":130,"freeDeliveryAbove":2000,"codEnabled":true,"bkashEnabled":true,"bkashNumber":"01884332067","nagadEnabled":true,"nagadNumber":"01884332067","rocketEnabled":false,"rocketNumber":"","paymentNote":"বিকাশ/নগদে টাকা পাঠিয়ে ট্রানজেকশন আইডি অর্ডার নোটে লিখুন।","confirmMessage":"ধন্যবাদ! আপনার অর্ডারটি আমরা পেয়েছি।"}'),
   ('background', '{"type":"color","color":"#08080a","image":"","overlay":45,"blur":0}')
 on conflict (key) do nothing;
 
@@ -687,61 +687,65 @@ create table if not exists integration_settings (
   unique (group_key, provider)
 );
 
--- ------------------------------------------------------------
--- RLS policies — demo থেকে live-এ যাওয়ার সময় এগুলো চালু করুন
--- (advisable: সাপ্লায়ার/ভেন্ডর/পারচেজ শুধু অ্যাডমিন অ্যাক্সেস)
--- ------------------------------------------------------------
-alter table returns    enable row level security;
+-- Secure RLS: public read only for active customer-facing rows;
+-- all private/operational records are Admin-only. Admin check uses security definer.
+
+alter table returns enable row level security;
 alter table warranties enable row level security;
-alter table campaigns  enable row level security;
-alter table suppliers  enable row level security;
-alter table purchases  enable row level security;
-alter table faqs       enable row level security;
-alter table policies   enable row level security;
+alter table campaigns enable row level security;
+alter table suppliers enable row level security;
+alter table purchases enable row level security;
+alter table faqs enable row level security;
+alter table policies enable row level security;
 alter table support_tickets enable row level security;
-alter table vendors    enable row level security;
+alter table vendors enable row level security;
 alter table warehouses enable row level security;
 alter table loyalty_points enable row level security;
 alter table integration_settings enable row level security;
 
--- পলিসি ফাংশন: 'admin' রোল বা authenticated হলে সব পড়তে/লিখতে পারে
-do $$
-begin
-  if not exists (select 1 from pg_policies where tablename = 'returns' and policyname = 'returns_all_authenticated') then
-    create policy returns_all_authenticated on returns for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'warranties' and policyname = 'warranties_all_authenticated') then
-    create policy warranties_all_authenticated on warranties for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'campaigns' and policyname = 'campaigns_all_authenticated') then
-    create policy campaigns_all_authenticated on campaigns for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'suppliers' and policyname = 'suppliers_all_authenticated') then
-    create policy suppliers_all_authenticated on suppliers for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'purchases' and policyname = 'purchases_all_authenticated') then
-    create policy purchases_all_authenticated on purchases for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'faqs' and policyname = 'faqs_all_authenticated') then
-    create policy faqs_all_authenticated on faqs for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'policies' and policyname = 'policies_all_authenticated') then
-    create policy policies_all_authenticated on policies for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'support_tickets' and policyname = 'support_tickets_all_authenticated') then
-    create policy support_tickets_all_authenticated on support_tickets for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'vendors' and policyname = 'vendors_all_authenticated') then
-    create policy vendors_all_authenticated on vendors for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'warehouses' and policyname = 'warehouses_all_authenticated') then
-    create policy warehouses_all_authenticated on warehouses for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'loyalty_points' and policyname = 'loyalty_points_all_authenticated') then
-    create policy loyalty_points_all_authenticated on loyalty_points for all to authenticated using (true) with check (true);
-  end if;
-  if not exists (select 1 from pg_policies where tablename = 'integration_settings' and policyname = 'integration_settings_all_authenticated') then
-    create policy integration_settings_all_authenticated on integration_settings for all to authenticated using (true) with check (true);
-  end if;
-end $$;
+-- Drop older broad policies if this script is re-applied.
+drop policy if exists returns_all_authenticated on returns;
+drop policy if exists warranties_all_authenticated on warranties;
+drop policy if exists campaigns_all_authenticated on campaigns;
+drop policy if exists suppliers_all_authenticated on suppliers;
+drop policy if exists purchases_all_authenticated on purchases;
+drop policy if exists faqs_all_authenticated on faqs;
+drop policy if exists policies_all_authenticated on policies;
+drop policy if exists support_tickets_all_authenticated on support_tickets;
+drop policy if exists vendors_all_authenticated on vendors;
+drop policy if exists warehouses_all_authenticated on warehouses;
+drop policy if exists loyalty_points_all_authenticated on loyalty_points;
+drop policy if exists integration_settings_all_authenticated on integration_settings;
 
+drop policy if exists returns_admin_all on returns;
+create policy returns_admin_all on returns for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists warranties_admin_all on warranties;
+create policy warranties_admin_all on warranties for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists campaigns_public_read_active on campaigns;
+create policy campaigns_public_read_active on campaigns for select to anon, authenticated using (status = 'active');
+drop policy if exists campaigns_admin_all on campaigns;
+create policy campaigns_admin_all on campaigns for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists suppliers_admin_all on suppliers;
+create policy suppliers_admin_all on suppliers for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists purchases_admin_all on purchases;
+create policy purchases_admin_all on purchases for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists faqs_public_read_active on faqs;
+create policy faqs_public_read_active on faqs for select to anon, authenticated using (active = true);
+drop policy if exists faqs_admin_all on faqs;
+create policy faqs_admin_all on faqs for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists policies_public_read_active on policies;
+create policy policies_public_read_active on policies for select to anon, authenticated using (active = true);
+drop policy if exists policies_admin_all on policies;
+create policy policies_admin_all on policies for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists support_tickets_public_insert on support_tickets;
+create policy support_tickets_public_insert on support_tickets for insert to anon, authenticated with check (true);
+drop policy if exists support_tickets_admin_all on support_tickets;
+create policy support_tickets_admin_all on support_tickets for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists vendors_admin_all on vendors;
+create policy vendors_admin_all on vendors for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists warehouses_admin_all on warehouses;
+create policy warehouses_admin_all on warehouses for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists loyalty_points_admin_all on loyalty_points;
+create policy loyalty_points_admin_all on loyalty_points for all to authenticated using (is_admin()) with check (is_admin());
+drop policy if exists integration_settings_admin_all on integration_settings;
+create policy integration_settings_admin_all on integration_settings for all to authenticated using (is_admin()) with check (is_admin());

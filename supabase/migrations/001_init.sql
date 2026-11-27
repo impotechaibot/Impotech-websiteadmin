@@ -125,9 +125,9 @@ alter table site_settings enable row level security;
 alter table admin_users   enable row level security;
 
 -- helper: is the caller an admin?
-create or replace function is_admin()
-returns boolean language sql stable as $$
-  select exists (select 1 from admin_users where id = auth.uid());
+create or replace function public.is_admin()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.admin_users where id = auth.uid() and coalesce(role, 'admin') in ('admin', 'owner'));
 $$;
 
 -- ---- public read (storefront) ----
@@ -196,6 +196,6 @@ insert into site_settings (key, value) values
   ('identity', '{"siteName":"ইম্পোটেক","siteNameEn":"IMPOTECH","tagline":"চায়না থেকে সরাসরি আমদানি — প্রিমিয়াম বাইক অ্যাক্সেসরিজ","logo":"","favicon":"","copyright":"© {year} ইম্পোটেক — সর্বস্বত্ব সংরক্ষিত।"}'),
   ('theme', '{"accent":"#f0b429","accentDark":"#c9920f","fontScale":100,"radius":18,"mode":"dark"}'),
   ('contact', '{"phone":"01884332067","email":"support@impotech.com.bd","address":"ঢাকা, বাংলাদেশ","hours":"সকাল ১০টা — রাত ১০টা","whatsapp":"01884332067","facebook":"","instagram":"","youtube":"","tiktok":""}'),
-  ('checkout', '{"deliveryCharge":80,"freeDeliveryAbove":2000,"codEnabled":true,"bkashEnabled":true,"bkashNumber":"01884332067","nagadEnabled":true,"nagadNumber":"01884332067","rocketEnabled":false,"rocketNumber":"","paymentNote":"বিকাশ/নগদে টাকা পাঠিয়ে ট্রানজেকশন আইডি অর্ডার নোটে লিখুন।","confirmMessage":"ধন্যবাদ! আপনার অর্ডারটি আমরা পেয়েছি।"}'),
+  ('checkout', '{"deliveryCharge":80,"outsideDeliveryCharge":130,"freeDeliveryAbove":2000,"codEnabled":true,"bkashEnabled":true,"bkashNumber":"01884332067","nagadEnabled":true,"nagadNumber":"01884332067","rocketEnabled":false,"rocketNumber":"","paymentNote":"বিকাশ/নগদে টাকা পাঠিয়ে ট্রানজেকশন আইডি অর্ডার নোটে লিখুন।","confirmMessage":"ধন্যবাদ! আপনার অর্ডারটি আমরা পেয়েছি।"}'),
   ('background', '{"type":"color","color":"#08080a","image":"","overlay":45,"blur":0}')
 on conflict (key) do nothing;
