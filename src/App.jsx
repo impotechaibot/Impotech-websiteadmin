@@ -43,6 +43,8 @@ import SeoAdvanced from './pages/SeoAdvanced.jsx';
 import Vendors from './pages/Vendors.jsx';
 import DeployGuide from './pages/DeployGuide.jsx';
 import GithubPush from './pages/GithubPush.jsx';
+import CheckoutSettings from './pages/CheckoutSettings.jsx';
+import PageBuilder from './pages/PageBuilder.jsx';
 
 export default function App() {
   const { loading } = useAuth();
@@ -97,6 +99,8 @@ export default function App() {
         <Route path="/deploy" element={<DeployGuide />} />
         <Route path="/github" element={<GithubPush />} />
         <Route path="/settings" element={<SiteSettings />} />
+        <Route path="/checkout-settings" element={<CheckoutSettings />} />
+        <Route path="/page-builder" element={<PageBuilder />} />
         <Route path="/home" element={<HomeContent />} />
         <Route path="/theme" element={<ThemeSettings />} />
         <Route path="/content" element={<ContentPages />} />
