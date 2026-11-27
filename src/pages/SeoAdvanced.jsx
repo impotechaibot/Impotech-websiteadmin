@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Save, Download, Globe, FileCode2, Bot, BarChart3 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { localdb } from '../lib/localdb.js';
+import { getSetting, saveSetting } from '../services/settings.js';
+import { listProducts } from '../services/products.js';
+import { listCategories } from '../services/categories.js';
+import { listLandingPages } from '../services/landingPages.js';
+import { supabase, isSupabaseConfigured } from '../lib/supabase.js';
 
 /**
  * SEO অ্যাডভান্সড — সাইটম্যাপ, robots.txt, স্ট্রাকচার্ড ডেটা ও অ্যানালিটিক্স কনফিগ।
@@ -9,7 +14,7 @@ import { localdb } from '../lib/localdb.js';
  */
 export default function SeoAdvanced() {
   const [cfg, setCfg] = useState({
-    siteUrl: 'https://impotech.shop',
+    siteUrl: 'https://impotech.sellsull.com',
     siteName: 'ইম্পোটেক',
     defaultTitle: 'ইম্পোটেক — প্রিমিয়াম বাইক অ্যাকসেসরিজ',
     defaultDescription: 'চায়না থেকে সরাসরি আমদানি করা প্রিমিয়াম বাইক অ্যাক্সেসরিজ, LED লাইট ও রাইডিং গিয়ার।',
@@ -29,25 +34,34 @@ export default function SeoAdvanced() {
   const [categories, setCategories] = useState([]);
   const [pages, setPages] = useState([]);
   const [landing, setLanding] = useState([]);
+  const [customPages, setCustomPages] = useState([]);
+  const [contentPages, setContentPages] = useState({});
 
   useEffect(() => {
-    try {
-      setCfg((c) => ({ ...c, ...(localdb.getSetting('seo_advanced') || {}) }));
-      setProducts(localdb.all('products'));
-      setCategories(localdb.all('categories'));
-      setPages(localdb.all('policies'));
-      setLanding(localdb.all('landing_pages'));
-    } catch (e) {
-      toast.error(e.message);
-    }
+    (async () => {
+      try {
+        const remoteCfg = await getSetting('seo_advanced');
+        setCfg((c) => ({ ...c, ...(remoteCfg || localdb.getSetting('seo_advanced') || {}) }));
+        const [p, c, l, custom, content] = await Promise.all([listProducts(), listCategories(), listLandingPages(), getSetting('pages'), getSetting('content')]);
+        setProducts(p || []);
+        setCategories(c || []);
+        if (isSupabaseConfigured) { const { data: policyData, error: policyError } = await supabase.from('policies').select('slug,active'); if (policyError) throw policyError; setPages(policyData || []); } else setPages(localdb.all('policies'));
+        setContentPages(content || {});
+        setLanding(l || []);
+        setCustomPages(Array.isArray(custom) ? custom : []);
+      } catch (e) {
+        toast.error(e.message);
+      }
+    })();
   }, []);
 
   const set = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
 
-  const save = () => {
+  const save = async () => {
     try {
+      await saveSetting('seo_advanced', cfg);
       localdb.saveSetting('seo_advanced', cfg);
-      toast.success('SEO সেটিংস সেভ হয়েছে');
+      toast.success('SEO Advanced settings Website-এ Sync হয়েছে');
     } catch (e) {
       toast.error(e.message);
     }
@@ -66,12 +80,18 @@ export default function SeoAdvanced() {
     }
     if (cfg.sitemapIncludeCategories) {
       categories.filter((c) => c.active !== false).forEach((c) => {
-        urls.push({ loc: `${base}/category/${c.id}`, priority: '0.7', changefreq: 'weekly' });
+        urls.push({ loc: `${base}/shop?category=${c.slug || c.id}`, priority: '0.7', changefreq: 'weekly' });
       });
     }
     if (cfg.sitemapIncludePages) {
       pages.filter((p) => p.active !== false).forEach((p) => {
-        urls.push({ loc: `${base}/page/${p.slug}`, priority: '0.5', changefreq: 'monthly' });
+        urls.push({ loc: `${base}/policy/${p.slug}`, priority: '0.5', changefreq: 'monthly' });
+      });
+      customPages.filter((p) => p.status === 'published').forEach((p) => {
+        urls.push({ loc: `${base}/page/${p.slug}`, priority: '0.6', changefreq: 'monthly' });
+      });
+      Object.entries(contentPages || {}).forEach(([slug, page]) => {
+        if (page?.title) urls.push({ loc: `${base}/content/${slug}`, priority: '0.5', changefreq: 'monthly' });
       });
     }
     if (cfg.sitemapIncludeLanding) {
@@ -89,7 +109,7 @@ ${urls.map((u) => `  <url>
     <priority>${u.priority}</priority>
   </url>`).join('\n')}
 </urlset>`;
-  }, [cfg, products, categories, pages, landing]);
+  }, [cfg, products, categories, pages, landing, customPages, contentPages]);
 
   const robots = useMemo(() => {
     const base = String(cfg.siteUrl || '').replace(/\/$/, '');

@@ -4,14 +4,14 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function Login() {
-  const { signIn, user, demoMode } = useAuth();
+  const { signIn, user, isAdmin, demoMode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState(demoMode ? 'admin@impotech.com.bd' : '');
   const [password, setPassword] = useState(demoMode ? 'impotech2026' : '');
   const [busy, setBusy] = useState(false);
 
-  if (user) {
+  if (user && isAdmin) {
     return <Navigate to={location.state?.from?.pathname || '/'} replace />;
   }
 
