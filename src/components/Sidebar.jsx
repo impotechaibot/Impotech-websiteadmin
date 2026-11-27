@@ -85,6 +85,8 @@ const NAV = [
       { to: '/seo', label: 'SEO', icon: Search },
       { to: '/seo-advanced', label: 'SEO অ্যাডভান্সড', icon: Globe },
       { to: '/settings', label: 'সাইট সেটিংস', icon: Settings },
+      { to: '/checkout-settings', label: 'ডেলিভারি ও Checkout', icon: CreditCard },
+      { to: '/page-builder', label: 'Visual Page Builder', icon: LayoutDashboard },
     ],
   },
   {
